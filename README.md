@@ -2,7 +2,8 @@ A zypper plugin for executing arbitrary commands after a package is installed or
 
 ## Install
 
-Put `post-commit-actions` in `/usr/lib/zypp/plugins/commit`
+Put `post-commit-actions` in `/usr/lib/zypp/plugins/commit`,
+make it executable,
 and create folder `/etc/zypp/post-actions.d` .
 
 ## Usage
