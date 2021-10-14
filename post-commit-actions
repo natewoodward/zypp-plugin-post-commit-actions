@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Library General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# zypp commit plugin
+
+import os
+import sys
+from zypp_plugin import Plugin
+
+import glob
+import json
+import fnmatch
+
+class MyPlugin(Plugin):
+
+  ddir = "/etc/zypp/post-actions.d"
+  logfile = "/dev/null"
+  actions = []
+
+  def log(self, message):
+    if self.logfile == "/dev/null":
+        pass
+
+    with open(self.logfile, 'a') as f:
+      f.write(message + "\n")
+
+  def parse_actions(self, ddir):
+    """read in .action files from ddir path. 
+     store content in a list of tuples"""
+    action_tuples = [] # (action key, action_state, shell command)
+    action_file_list = []
+    if os.access(ddir, os.R_OK):
+      action_file_list.extend(glob.glob(ddir + "/*.action"))
+
+    if action_file_list:
+      for f in action_file_list:
+        for line in open(f).readlines():
+          line = line.strip()
+          if line and line[0] != "#":
+            try:
+              (a_key, a_state, a_command) = line.split(':', 2)
+            except ValueError,e:
+              self.log('Bad Action Line: %s' % line)
+              continue
+            else:
+              action_tuples.append((a_key, a_state, a_command))
+  
+    return action_tuples
+
+  def PLUGINBEGIN(self, headers, body):
+    # commit is going to start.
+    if headers.has_key('userdata'):
+      print("Commit starts with TID '%s'" % headers['userdata'])
+
+    # load actions
+    self.actions = self.parse_actions(self.ddir)
+      
+    self.ack()
+
+  statemap = {"-":"remove", "+":"install", "M":"install"}
+  def COMMITEND(self, headers, body):
+    body = json.loads(body)
+    for step in body["TransactionStepList"]:
+      # make sure this is a package action that succeeded
+      if "type" in step and "stage" in step and step['stage'] == "ok":
+        # run actions matching package and action
+        #
+        # key = package glob
+        # state = install, remove, any
+        # command = command string
+        for (key, state, comm) in self.actions:
+          if state == "update": state = "install"
+          for package in fnmatch.filter([step['solvable']['n']], key):
+            if state == self.statemap[step['type']] or state == "any":
+              os.environ['name']         = step['solvable']['n']
+              os.environ['epoch']        = step['solvable']['e'] if 'e' in step['solvable'] else '0'
+              os.environ['version']      = step['solvable']['v']
+              os.environ['release']      = step['solvable']['r']
+              os.environ['architecture'] = step['solvable']['a']
+              os.environ['state']        = self.statemap[step['type']]
+              #comm = command.format(
+              #  name=step['solvable']['n'],
+              #  epoch=step['solvable']['e'] if 'e' in step['solvable'] else '0',
+              #  version=step['solvable']['v'],
+              #  release=step['solvable']['r'],
+              #  architecture=step['solvable']['a'],
+              #  state=self.statemap[step['type']]
+              #)
+              self.log("Running post commit command: %s" % comm)
+              p = os.system(comm)
+
+    self.ack()
+
+plugin = MyPlugin()
+plugin.main()
+
+# vim: sts=2 expandtab:
