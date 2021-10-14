@@ -91,14 +91,6 @@ class MyPlugin(Plugin):
               os.environ['release']      = step['solvable']['r']
               os.environ['architecture'] = step['solvable']['a']
               os.environ['state']        = self.statemap[step['type']]
-              #comm = command.format(
-              #  name=step['solvable']['n'],
-              #  epoch=step['solvable']['e'] if 'e' in step['solvable'] else '0',
-              #  version=step['solvable']['v'],
-              #  release=step['solvable']['r'],
-              #  architecture=step['solvable']['a'],
-              #  state=self.statemap[step['type']]
-              #)
               self.log("Running post commit command: %s" % comm)
               p = os.system(comm)
 
