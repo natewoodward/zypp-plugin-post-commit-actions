@@ -37,6 +37,7 @@ class MyPlugin(Plugin):
     with open(self.logfile, 'a') as f:
       f.write(message + "\n")
 
+  # modified from post-transaction-actions.py
   def parse_actions(self, ddir):
     """read in .action files from ddir path. 
      store content in a list of tuples"""
