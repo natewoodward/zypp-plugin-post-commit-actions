@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,18 +24,13 @@ import glob
 import json
 import fnmatch
 
-class MyPlugin(Plugin):
+class PostCommitActions(Plugin):
 
   ddir = "/etc/zypp/post-actions.d"
-  logfile = "/dev/null"
   actions = []
 
   def log(self, message):
-    if self.logfile == "/dev/null":
-        pass
-
-    with open(self.logfile, 'a') as f:
-      f.write(message + "\n")
+    print('post-commit-actions: %s' % (message,), file=sys.stderr)
 
   # modified from post-transaction-actions.py
   def parse_actions(self, ddir):
@@ -45,6 +40,7 @@ class MyPlugin(Plugin):
     action_file_list = []
     if os.access(ddir, os.R_OK):
       action_file_list.extend(glob.glob(ddir + "/*.action"))
+    self.log( 'Found actions %s' % (', '.join(action_file_list)) )
 
     if action_file_list:
       for f in action_file_list:
@@ -53,8 +49,8 @@ class MyPlugin(Plugin):
           if line and line[0] != "#":
             try:
               (a_key, a_state, a_command) = line.split(':', 2)
-            except ValueError,e:
-              self.log('Bad Action Line: %s' % line)
+            except ValueError as e:
+              self.log('Bad Action Line: %s in %s' % (line,f))
               continue
             else:
               action_tuples.append((a_key, a_state, a_command))
@@ -63,12 +59,12 @@ class MyPlugin(Plugin):
 
   def PLUGINBEGIN(self, headers, body):
     # commit is going to start.
-    if headers.has_key('userdata'):
-      print("Commit starts with TID '%s'" % headers['userdata'])
+    if 'userdata' in headers:
+      self.log("Commit starts with TID '%s'" % headers['userdata'])
 
     # load actions
     self.actions = self.parse_actions(self.ddir)
-      
+
     self.ack()
 
   statemap = {"-":"remove", "+":"install", "M":"install"}
@@ -97,7 +93,7 @@ class MyPlugin(Plugin):
 
     self.ack()
 
-plugin = MyPlugin()
+plugin = PostCommitActions()
 plugin.main()
 
 # vim: sts=2 expandtab:
