@@ -8,6 +8,9 @@ and create folder `/etc/zypp/post-actions.d` .
 
 ## Usage
 
+Create ".action" files in `/etc/zypp/post-actions.d`, following
+the format given below:
+
 **/etc/zypp/post-actions.d/sample.action**
 
     # the format of each line is:
